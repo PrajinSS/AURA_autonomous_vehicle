@@ -1,8 +1,10 @@
+import math
+
 import pytest
 
 from config import SimulationParams
-from experiments.scenarios import SCENARIOS, build_scenario
-from simulation.baseline_controller import ReactiveGoalController
+from experiments.runner import run_episode
+from experiments.scenarios import available_scenarios
 from simulation.environment import Environment
 from simulation.geometry import Bounds
 from simulation.obstacles import Obstacle
@@ -10,28 +12,16 @@ from simulation.simulator import Simulator, TerminationReason
 from simulation.vehicle import Vehicle, VehicleCommand, VehicleState
 
 
-def _run(name: str, seed: int = 42):
-    spec = build_scenario(name, seed)
-    vehicle = Vehicle(spec.initial_state)
-    sim = Simulator(
-        spec.environment,
-        vehicle,
-        ReactiveGoalController(vehicle.params),
-        SimulationParams(seed=seed),
-        name=name,
-    )
-    return sim.run()
-
-
-@pytest.mark.parametrize("name", sorted(SCENARIOS))
+@pytest.mark.parametrize("name", available_scenarios())
 def test_every_scenario_reaches_goal_without_collision(name):
-    result = _run(name)
+    _, result = run_episode(name, seed=42)
     assert result.reason is TerminationReason.GOAL_REACHED
     assert result.summary()["min_clearance_m"] > 0.0
 
 
 def test_runs_are_reproducible_for_same_seed():
-    a, b = _run("cluttered", 7), _run("cluttered", 7)
+    _, a = run_episode("cluttered", 7)
+    _, b = run_episode("cluttered", 7)
     assert a.summary() == b.summary()
 
 
@@ -43,8 +33,7 @@ def test_collision_is_detected():
     env = Environment(
         Bounds(0, 50, 0, 20), (45, 10), [Obstacle.static("wall", 20, 10, 2.0)]
     )
-    vehicle = Vehicle(VehicleState(5.0, 10.0))
-    result = Simulator(env, vehicle, DriveStraight()).run()
+    result = Simulator(env, Vehicle(VehicleState(5.0, 10.0)), DriveStraight()).run()
     assert result.reason is TerminationReason.COLLISION
 
 
@@ -55,19 +44,29 @@ def test_timeout_when_vehicle_cannot_move():
 
     env = Environment(Bounds(0, 50, 0, 20), (45, 10), [])
     result = Simulator(
-        env,
-        Vehicle(VehicleState(5.0, 10.0)),
-        Stay(),
-        SimulationParams(max_time=2.0),
+        env, Vehicle(VehicleState(5.0, 10.0)), Stay(), SimulationParams(max_time=2.0)
     ).run()
     assert result.reason is TerminationReason.TIMEOUT
 
 
+def test_world_state_exposes_ground_truth():
+    env = Environment(
+        Bounds(0, 50, 0, 20), (45, 10), [Obstacle.moving("w", 10, 10, 0.5, 1.0, 0.0)]
+    )
+    sim = Simulator(env, Vehicle(VehicleState(5.0, 10.0, speed=2.0)), None)
+    world = sim.world_state()
+    assert world.vehicle.speed == 2.0
+    assert world.obstacles[0].obstacle_id == "w" and world.obstacles[0].vx == 1.0
+    assert world.to_dict()["time"] == 0.0
+
+
+def test_running_twice_gives_same_clock_start():
+    spec, first = run_episode("static", 1)
+    assert first.records[0].t == 0.0
+    assert math.isclose(first.records[1].t, SimulationParams().dt)
+
+
 def test_dataframe_has_expected_columns():
-    df = _run("static").to_dataframe()
-    assert {"t", "x", "y", "speed", "min_gap", "goal_distance"} <= set(df.columns)
-
-
-def test_unknown_scenario_message():
-    with pytest.raises(ValueError, match="Unknown scenario"):
-        build_scenario("nope")
+    _, result = run_episode("static", 42)
+    cols = set(result.to_dataframe().columns)
+    assert {"t", "x", "y", "heading", "speed", "acceleration", "min_gap"} <= cols

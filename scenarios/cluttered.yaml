@@ -1,0 +1,30 @@
+name: cluttered
+description: Static racks plus two workers walking across the factory.
+map: {width: 80, height: 40}
+start: {x: 5, y: 20, heading: 0}
+goal: {x: 75, y: 20, tolerance: 1.5}
+position_jitter: 0.6
+obstacles:
+  - id: rack_1
+    shape: {type: rectangle, width: 4, height: 3}
+    motion: {type: static, x: 22, y: 14}
+  - id: rack_2
+    shape: {type: rectangle, width: 4, height: 3}
+    motion: {type: static, x: 30, y: 27}
+  - id: rack_3
+    shape: {type: circle, radius: 2.2}
+    motion: {type: static, x: 42, y: 18}
+  - id: rack_4
+    shape: {type: rectangle, width: 4, height: 3}
+    motion: {type: static, x: 55, y: 26}
+  - id: rack_5
+    shape: {type: circle, radius: 2.2}
+    motion: {type: static, x: 63, y: 14}
+  - id: worker_1
+    category: worker
+    shape: {type: circle, radius: 0.6}
+    motion: {type: linear, x: 36, y: 5, vx: 0, vy: 1.3}
+  - id: worker_2
+    category: worker
+    shape: {type: circle, radius: 0.6}
+    motion: {type: linear, x: 58, y: 35, vx: 0, vy: -1.2}

@@ -39,3 +39,9 @@ def test_steering_turns_heading():
 def test_invalid_dt():
     with pytest.raises(ValueError):
         Vehicle(VehicleState(0, 0)).step(VehicleCommand(1.0, 0.0), 0.0)
+
+
+def test_acceleration_is_reported():
+    v = Vehicle(VehicleState(0.0, 0.0))
+    v.step(VehicleCommand(target_speed=4.0, steering=0.0), 0.1)
+    assert math.isclose(v.state.acceleration, VehicleParams().max_accel)

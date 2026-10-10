@@ -1,5 +1,4 @@
 """Phase 1 reactive baseline: go to the goal and push away from obstacles.
-
 This is intentionally simple. It reacts only to *current* obstacle positions,
 which makes it a fair "Baseline A" to beat in later phases.
 """
@@ -41,24 +40,24 @@ class ReactiveGoalController:
         vec_x, vec_y = dx / goal_dist, dy / goal_dist
         cos_t, sin_t = math.cos(cp.tangential_angle), math.sin(cp.tangential_angle)
         front_gap = math.inf
-
         for obs in obstacles:
-            away_x, away_y = state.x - obs.x, state.y - obs.y
-            centre = math.hypot(away_x, away_y)
-            if centre < 1e-9:
+            # Work from the closest point on the obstacle, so circles and
+            # rectangles are handled identically.
+            near_x, near_y = obs.closest_point(state.x, state.y)
+            away_x, away_y = state.x - near_x, state.y - near_y
+            dist = math.hypot(away_x, away_y)
+            if dist < 1e-9:
                 continue
-            gap = centre - obs.radius - vp.radius
-
+            gap = dist - vp.radius
             # Is the obstacle in front of us? (used for speed limiting)
             bearing = wrap_angle(math.atan2(-away_y, -away_x) - state.heading)
             if abs(bearing) <= cp.front_cone:
                 front_gap = min(front_gap, gap)
-
             if gap >= cp.influence_gap:
                 continue
             strength = cp.repulsion_gain * (cp.influence_gap - max(gap, 0.0))
             strength /= cp.influence_gap
-            ux, uy = away_x / centre, away_y / centre
+            ux, uy = away_x / dist, away_y / dist
             # Rotating the push slightly breaks head-on symmetry.
             vec_x += strength * (ux * cos_t - uy * sin_t)
             vec_y += strength * (ux * sin_t + uy * cos_t)
@@ -74,6 +73,5 @@ class ReactiveGoalController:
             ratio = clamp(front_gap / cp.slow_gap, 0.0, 1.0)
             clearance_speed = max(cp.min_speed_near_obstacle, vp.max_speed * ratio)
         turn_speed = vp.max_speed * max(0.3, math.cos(min(abs(error), 1.2)))
-
         target = min(vp.max_speed, stop_speed, clearance_speed, turn_speed)
         return VehicleCommand(target_speed=target, steering=steering)

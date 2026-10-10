@@ -1,0 +1,32 @@
+name: warehouse
+description: Shelving aisles with a forklift patrolling across the main corridor.
+map: {width: 80, height: 40}
+start: {x: 5, y: 20, heading: 0}
+goal: {x: 75, y: 20, tolerance: 1.5}
+position_jitter: 0.3
+obstacles:
+  - id: shelf_n1
+    jitter: 0
+    shape: {type: rectangle, width: 12, height: 3}
+    motion: {type: static, x: 22, y: 29}
+  - id: shelf_s1
+    jitter: 0
+    shape: {type: rectangle, width: 12, height: 3}
+    motion: {type: static, x: 22, y: 11}
+  - id: shelf_n2
+    jitter: 0
+    shape: {type: rectangle, width: 12, height: 3}
+    motion: {type: static, x: 58, y: 29}
+  - id: shelf_s2
+    jitter: 0
+    shape: {type: rectangle, width: 12, height: 3}
+    motion: {type: static, x: 58, y: 11}
+  - id: forklift_1
+    category: vehicle
+    jitter: 0
+    shape: {type: rectangle, width: 3, height: 1.8}
+    motion:
+      type: waypoints
+      points: [[40, 33], [40, 7]]
+      speed: 2.0
+      mode: pingpong

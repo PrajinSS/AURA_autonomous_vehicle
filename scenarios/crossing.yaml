@@ -1,0 +1,15 @@
+name: crossing
+description: A worker walks across the vehicle's route.
+map: {width: 80, height: 40}
+start: {x: 5, y: 20, heading: 0}
+goal: {x: 75, y: 20, tolerance: 1.5}
+position_jitter: 0.5
+obstacles:
+  - id: machine_1
+    jitter: 0
+    shape: {type: circle, radius: 2.5}
+    motion: {type: static, x: 25, y: 23}
+  - id: worker_1
+    category: worker
+    shape: {type: circle, radius: 0.6}
+    motion: {type: linear, x: 45, y: 2, vx: 0, vy: 1.5}

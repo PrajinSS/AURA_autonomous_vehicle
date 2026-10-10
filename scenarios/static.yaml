@@ -1,0 +1,16 @@
+name: static
+description: Reach the goal around three static obstacles.
+map: {width: 80, height: 40}
+start: {x: 5, y: 20, heading: 0}
+goal: {x: 75, y: 20, tolerance: 1.5}
+position_jitter: 0.5
+obstacles:
+  - id: machine_1
+    shape: {type: circle, radius: 2.5}
+    motion: {type: static, x: 28, y: 20}
+  - id: pallet_2
+    shape: {type: circle, radius: 3.0}
+    motion: {type: static, x: 48, y: 17}
+  - id: machine_3
+    shape: {type: circle, radius: 2.5}
+    motion: {type: static, x: 62, y: 24}

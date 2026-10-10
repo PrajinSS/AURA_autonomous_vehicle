@@ -17,6 +17,7 @@ class VehicleState:
     y: float
     heading: float = 0.0
     speed: float = 0.0
+    acceleration: float = 0.0  # last applied, m/s^2
 
 
 @dataclass(frozen=True)
@@ -39,17 +40,16 @@ class Vehicle:
         if dt <= 0:
             raise ValueError("dt must be > 0.")
         p, s = self.params, self.state
-
         target = clamp(command.target_speed, 0.0, p.max_speed)
         steering = clamp(command.steering, -p.max_steer, p.max_steer)
-
+        previous_speed = s.speed
         delta_v = target - s.speed
         if delta_v >= 0.0:
             delta_v = min(delta_v, p.max_accel * dt)
         else:
             delta_v = max(delta_v, -p.max_brake * dt)
         s.speed = max(0.0, s.speed + delta_v)
-
+        s.acceleration = (s.speed - previous_speed) / dt
         s.x += s.speed * math.cos(s.heading) * dt
         s.y += s.speed * math.sin(s.heading) * dt
         s.heading = wrap_angle(

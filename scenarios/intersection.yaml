@@ -1,0 +1,19 @@
+name: intersection
+description: Two AGVs cross the main route at a junction while a pallet blocks one side.
+map: {width: 80, height: 40}
+start: {x: 5, y: 20, heading: 0}
+goal: {x: 75, y: 20, tolerance: 1.5}
+position_jitter: 0.5
+obstacles:
+  - id: pallet_1
+    jitter: 0
+    shape: {type: rectangle, width: 5, height: 4}
+    motion: {type: static, x: 40, y: 28}
+  - id: agv_1
+    category: vehicle
+    shape: {type: rectangle, width: 3, height: 1.6}
+    motion: {type: linear, x: 38, y: 36, vx: 0, vy: -1.6}
+  - id: agv_2
+    category: vehicle
+    shape: {type: rectangle, width: 3, height: 1.6}
+    motion: {type: linear, x: 52, y: 0, vx: 0, vy: 1.4}

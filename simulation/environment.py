@@ -5,11 +5,11 @@ from __future__ import annotations
 import math
 
 from simulation.geometry import Bounds
-from simulation.obstacles import Obstacle
+from simulation.obstacles import Obstacle, ObstacleFrame
 
 
 class Environment:
-    """Owns the ground truth of the world and advances it in time."""
+    """Owns the ground truth of the world and positions it for a given time."""
 
     def __init__(
         self,
@@ -28,17 +28,27 @@ class Environment:
         self.goal_tolerance = goal_tolerance
         self.obstacles = obstacles
         self.time = 0.0
+        self.update(0.0)
 
-    def step(self, dt: float) -> None:
+    # ---- time -------------------------------------------------------------
+    def update(self, t: float) -> None:
+        """Move every obstacle to its position at absolute time ``t``."""
         for obstacle in self.obstacles:
-            obstacle.step(dt, self.bounds)
-        self.time += dt
+            obstacle.update(t)
+        self.time = t
+
+    # ---- queries ----------------------------------------------------------
+    @property
+    def static_obstacles(self) -> list[Obstacle]:
+        return [o for o in self.obstacles if o.is_static]
+
+    @property
+    def dynamic_obstacles(self) -> list[Obstacle]:
+        return [o for o in self.obstacles if not o.is_static]
 
     def obstacle_gaps(self, x: float, y: float, radius: float) -> list[float]:
         """Clearance (surface to surface) to every obstacle; <= 0 means contact."""
-        return [
-            math.hypot(o.x - x, o.y - y) - o.radius - radius for o in self.obstacles
-        ]
+        return [o.gap(x, y, radius) for o in self.obstacles]
 
     def min_gap(self, x: float, y: float, radius: float) -> float:
         gaps = self.obstacle_gaps(x, y, radius)
@@ -53,5 +63,5 @@ class Environment:
     def goal_reached(self, x: float, y: float) -> bool:
         return self.goal_distance(x, y) <= self.goal_tolerance
 
-    def ground_truth(self) -> list[dict[str, float | str]]:
-        return [o.ground_truth() for o in self.obstacles]
+    def frames(self) -> tuple[ObstacleFrame, ...]:
+        return tuple(o.frame() for o in self.obstacles)

@@ -11,18 +11,19 @@ from typing import Protocol
 import pandas as pd
 
 from config import SimulationParams
+from simulation.clock import SimulationClock
 from simulation.environment import Environment
-from simulation.obstacles import Obstacle
+from simulation.obstacles import Obstacle, ObstacleFrame
 from simulation.vehicle import Vehicle, VehicleCommand, VehicleState
+from simulation.world_state import WorldState, build_world_state
 
 logger = logging.getLogger(__name__)
 
 
 class Controller(Protocol):
     """Anything that maps (state, goal, obstacles) to a command.
-
-    The Phase 1 reactive controller satisfies this; the adaptive planner of
-    Phase 9 will satisfy it too, so the simulator never has to change.
+    The reactive baseline satisfies this; the Phase 9 adaptive planner will
+    satisfy it too, so the simulator never has to change.
     """
 
     def compute(
@@ -49,23 +50,22 @@ class StepRecord:
     y: float
     heading: float
     speed: float
+    acceleration: float
     target_speed: float
     steering: float
     min_gap: float
     goal_distance: float
 
 
-ObstacleSnapshot = tuple[tuple[float, float, float], ...]  # (x, y, radius)
-
-
 @dataclass
 class SimulationResult:
     scenario: str
+    seed: int
     reason: TerminationReason
     path_length: float
     near_miss_gap: float
     records: list[StepRecord] = field(default_factory=list)
-    obstacle_history: list[ObstacleSnapshot] = field(default_factory=list)
+    obstacle_history: list[tuple[ObstacleFrame, ...]] = field(default_factory=list)
 
     def to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame([asdict(r) for r in self.records])
@@ -80,17 +80,19 @@ class SimulationResult:
             inside = now_inside
         return events
 
-    def summary(self) -> dict[str, float | int | str]:
-        finite_gaps = [r.min_gap for r in self.records if math.isfinite(r.min_gap)]
-        duration = self.records[-1].t if self.records else 0.0
+    def summary(self) -> dict[str, float | int | str | bool]:
+        gaps = [r.min_gap for r in self.records if math.isfinite(r.min_gap)]
         speeds = [r.speed for r in self.records]
         return {
             "scenario": self.scenario,
+            "seed": self.seed,
             "outcome": self.reason.value,
-            "duration_s": round(duration, 2),
+            "success": self.reason is TerminationReason.GOAL_REACHED,
+            "collision": self.reason is TerminationReason.COLLISION,
+            "duration_s": round(self.records[-1].t, 2) if self.records else 0.0,
             "path_length_m": round(self.path_length, 2),
             "mean_speed_mps": round(sum(speeds) / len(speeds), 3) if speeds else 0.0,
-            "min_clearance_m": round(min(finite_gaps), 3) if finite_gaps else math.inf,
+            "min_clearance_m": round(min(gaps), 3) if gaps else math.inf,
             "near_miss_events": self.near_miss_events(),
             "steps": len(self.records),
         }
@@ -112,23 +114,28 @@ class Simulator:
         self.controller = controller
         self.params = params or SimulationParams()
         self.name = name
+        self.clock = SimulationClock(self.params.dt)
+
+    def world_state(self) -> WorldState:
+        """Perfect ground truth right now (the input of Phase 3 sensors)."""
+        return build_world_state(
+            self.clock.time, self.vehicle.state, self.env.obstacles
+        )
 
     def _snapshot(self, command: VehicleCommand) -> StepRecord:
         s, r = self.vehicle.state, self.vehicle.params.radius
         return StepRecord(
-            t=round(self.env.time, 6),
+            t=round(self.clock.time, 6),
             x=s.x,
             y=s.y,
             heading=s.heading,
             speed=s.speed,
+            acceleration=s.acceleration,
             target_speed=command.target_speed,
             steering=command.steering,
             min_gap=self.env.min_gap(s.x, s.y, r),
             goal_distance=self.env.goal_distance(s.x, s.y),
         )
-
-    def _obstacles_now(self) -> ObstacleSnapshot:
-        return tuple((o.x, o.y, o.radius) for o in self.env.obstacles)
 
     def _check_termination(self) -> TerminationReason | None:
         s, r = self.vehicle.state, self.vehicle.params.radius
@@ -141,31 +148,30 @@ class Simulator:
         return None
 
     def run(self) -> SimulationResult:
-        dt = self.params.dt
-        max_steps = int(self.params.max_time / dt)
         result = SimulationResult(
             scenario=self.name,
+            seed=self.params.seed,
             reason=TerminationReason.TIMEOUT,
             path_length=0.0,
             near_miss_gap=self.params.near_miss_gap,
         )
+        self.clock.reset()
+        self.env.update(0.0)
         result.records.append(self._snapshot(VehicleCommand(0.0, 0.0)))
-        result.obstacle_history.append(self._obstacles_now())
-
-        for _ in range(max_steps):
+        result.obstacle_history.append(self.env.frames())
+        for _ in range(self.clock.steps_for(self.params.max_time)):
             command = self.controller.compute(
                 self.vehicle.state, self.env.goal, self.env.obstacles
             )
-            self.vehicle.step(command, dt)
-            self.env.step(dt)
+            self.vehicle.step(command, self.params.dt)
+            self.clock.tick()
+            self.env.update(self.clock.time)
             result.records.append(self._snapshot(command))
-            result.obstacle_history.append(self._obstacles_now())
-
+            result.obstacle_history.append(self.env.frames())
             reason = self._check_termination()
             if reason is not None:
                 result.reason = reason
                 break
-
         result.path_length = self.vehicle.distance_travelled
         logger.info("Run finished: %s", result.summary())
         return result
