@@ -1,0 +1,16 @@
+[project]
+name = "prajin-autonomous-vehicle"
+version = "0.1.0"
+description = "Phase 1: 2D industrial-vehicle simulation foundation"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
