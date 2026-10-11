@@ -13,6 +13,8 @@ import pandas as pd
 from config import SimulationParams, VehicleParams
 from experiments.scenario_loader import ScenarioSpec
 from experiments.scenarios import build_scenario
+from sensors.profiles import build_fault_schedule
+from sensors.suite import SensorSuite
 from simulation.baseline_controller import ReactiveGoalController
 from simulation.simulator import Controller, SimulationResult, Simulator
 from simulation.vehicle import Vehicle
@@ -29,13 +31,22 @@ def run_episode(
     seed: int = 42,
     controller_factory: ControllerFactory = reactive_baseline,
     sim_params: SimulationParams | None = None,
+    fault_profile: str | None = None,
 ) -> tuple[ScenarioSpec, SimulationResult]:
-    """Run one scenario once. Returns the spec (for plotting) and the result."""
+    """Run one scenario once. Returns the spec (for plotting) and the result.
+    ``fault_profile`` fits camera + LiDAR + radar and injects that profile's
+    faults ("nominal" = healthy sensors). ``None`` runs without sensors.
+    """
     spec = build_scenario(scenario, seed)
     params = sim_params or SimulationParams(seed=seed)
     vehicle = Vehicle(spec.initial_state)
     controller = controller_factory(vehicle.params)
-    simulator = Simulator(spec.environment, vehicle, controller, params, spec.name)
+    sensors = None
+    if fault_profile is not None:
+        sensors = SensorSuite.default(build_fault_schedule(fault_profile), seed)
+    simulator = Simulator(
+        spec.environment, vehicle, controller, params, spec.name, sensors=sensors
+    )
     return spec, simulator.run()
 
 

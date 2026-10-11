@@ -1,0 +1,4 @@
+name: camera_freeze
+description: The camera driver hangs at 6 s and keeps repeating its last image.
+faults:
+  - {sensor: camera, type: freeze, level: 0.9, start: 6}

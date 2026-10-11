@@ -1,0 +1,4 @@
+name: lidar_delay
+description: LiDAR data arrives up to 0.4 s late (network or driver congestion).
+faults:
+  - {sensor: lidar, type: delay, level: 0.4, start: 4, ramp: 3}

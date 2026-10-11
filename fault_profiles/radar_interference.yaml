@@ -1,0 +1,6 @@
+name: radar_interference
+description: Another radar interferes from 4 s; ghost targets and noisy ranges appear.
+faults:
+  - {sensor: radar, type: ghost, level: 3.0, start: 4, ramp: 2}
+  - {sensor: radar, type: noise, level: 2.0, start: 4, ramp: 2}
+  - {sensor: radar, type: outlier, level: 0.1, start: 4, ramp: 2}

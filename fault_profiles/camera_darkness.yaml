@@ -1,0 +1,6 @@
+name: camera_darkness
+description: The lights go down at t=3 s; the camera becomes noisy and short-sighted.
+faults:
+  - {sensor: camera, type: noise, level: 3.0, start: 3, ramp: 4}
+  - {sensor: camera, type: dropout, level: 0.35, start: 3, ramp: 4}
+  - {sensor: camera, type: range, level: 0.4, start: 3, ramp: 4}

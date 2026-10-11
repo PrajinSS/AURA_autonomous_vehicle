@@ -1,0 +1,6 @@
+name: camera_dust_progressive
+description: Dust slowly builds up on the lens, so quality falls steadily over 15 s.
+faults:
+  - {sensor: camera, type: noise, level: 5.0, start: 2, ramp: 15}
+  - {sensor: camera, type: dropout, level: 0.5, start: 2, ramp: 15}
+  - {sensor: camera, type: outlier, level: 0.15, start: 2, ramp: 15}

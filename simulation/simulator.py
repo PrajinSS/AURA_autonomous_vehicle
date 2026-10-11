@@ -6,7 +6,7 @@ import logging
 import math
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
@@ -16,6 +16,9 @@ from simulation.environment import Environment
 from simulation.obstacles import Obstacle, ObstacleFrame
 from simulation.vehicle import Vehicle, VehicleCommand, VehicleState
 from simulation.world_state import WorldState, build_world_state
+
+if TYPE_CHECKING:  # keeps 'simulation' independent of the 'sensors' package
+    from sensors.detection import SensorFrame
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,12 @@ class Controller(Protocol):
         goal: tuple[float, float],
         obstacles: list[Obstacle],
     ) -> VehicleCommand: ...
+
+
+class SensorSuiteLike(Protocol):
+    """Anything that turns ground truth into delivered sensor frames."""
+
+    def step(self, world: WorldState) -> list[SensorFrame]: ...
 
 
 class TerminationReason(str, Enum):
@@ -66,6 +75,7 @@ class SimulationResult:
     near_miss_gap: float
     records: list[StepRecord] = field(default_factory=list)
     obstacle_history: list[tuple[ObstacleFrame, ...]] = field(default_factory=list)
+    sensor_frames: list[SensorFrame] = field(default_factory=list)
 
     def to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame([asdict(r) for r in self.records])
@@ -108,12 +118,14 @@ class Simulator:
         controller: Controller,
         params: SimulationParams | None = None,
         name: str = "custom",
+        sensors: SensorSuiteLike | None = None,
     ) -> None:
         self.env = environment
         self.vehicle = vehicle
         self.controller = controller
         self.params = params or SimulationParams()
         self.name = name
+        self.sensors = sensors
         self.clock = SimulationClock(self.params.dt)
 
     def world_state(self) -> WorldState:
@@ -121,6 +133,11 @@ class Simulator:
         return build_world_state(
             self.clock.time, self.vehicle.state, self.env.obstacles
         )
+
+    def _sense(self, result: SimulationResult) -> None:
+        """Let the sensors observe the current ground truth (if any are fitted)."""
+        if self.sensors is not None:
+            result.sensor_frames.extend(self.sensors.step(self.world_state()))
 
     def _snapshot(self, command: VehicleCommand) -> StepRecord:
         s, r = self.vehicle.state, self.vehicle.params.radius
@@ -159,6 +176,7 @@ class Simulator:
         self.env.update(0.0)
         result.records.append(self._snapshot(VehicleCommand(0.0, 0.0)))
         result.obstacle_history.append(self.env.frames())
+        self._sense(result)
         for _ in range(self.clock.steps_for(self.params.max_time)):
             command = self.controller.compute(
                 self.vehicle.state, self.env.goal, self.env.obstacles
@@ -168,6 +186,7 @@ class Simulator:
             self.env.update(self.clock.time)
             result.records.append(self._snapshot(command))
             result.obstacle_history.append(self.env.frames())
+            self._sense(result)
             reason = self._check_termination()
             if reason is not None:
                 result.reason = reason

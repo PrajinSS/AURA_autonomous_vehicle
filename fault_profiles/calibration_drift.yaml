@@ -1,0 +1,4 @@
+name: calibration_drift
+description: The camera mounting slowly drifts, adding up to 6 degrees of bearing error.
+faults:
+  - {sensor: camera, type: bias, level: 6.0, start: 0, ramp: 15}

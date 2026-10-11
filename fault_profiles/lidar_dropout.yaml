@@ -1,0 +1,5 @@
+name: lidar_dropout
+description: LiDAR loses most returns and part of its view between 5 s and 12 s.
+faults:
+  - {sensor: lidar, type: dropout, level: 0.7, start: 5, end: 12, ramp: 1}
+  - {sensor: lidar, type: fov, level: 0.3, start: 5, end: 12, ramp: 1}
