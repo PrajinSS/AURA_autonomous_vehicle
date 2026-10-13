@@ -2,3 +2,4 @@ numpy>=1.26
 pandas>=2.1
 matplotlib>=3.8
 PyYAML>=6.0
+scikit-learn>=1.4

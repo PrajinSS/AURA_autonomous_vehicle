@@ -20,6 +20,8 @@ import numpy as np
 from config import ControllerParams, SimulationParams, VehicleParams
 from experiments.runner import run_episode
 from experiments.scenarios import available_scenarios
+from health.evaluation import classification_metrics, health_dataframe
+from health.visualization import save_health_timeline
 from sensors.metrics import detections_dataframe, frames_dataframe, sensor_metrics
 from sensors.profiles import available_fault_profiles
 from sensors.visualization import save_sensor_overview
@@ -44,12 +46,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--list-faults", action="store_true", help="list fault profiles"
     )
+    parser.add_argument(
+        "--health",
+        action="store_true",
+        help="run the sensor-health engine (needs --faults)",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--animate", action="store_true", help="also save a GIF")
     parser.add_argument("--save-grid", action="store_true", help="save occupancy grid")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
+    if args.health and args.faults is None:
+        parser.error(
+            "--health needs --faults (use '--faults nominal' for healthy sensors)"
+        )
     if args.faults is not None and args.faults not in available_fault_profiles():
         parser.error(
             f"unknown fault profile '{args.faults}'. "
@@ -78,7 +89,9 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.INFO if args.verbose else logging.WARNING,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    spec, result = run_episode(args.scenario, args.seed, fault_profile=args.faults)
+    spec, result = run_episode(
+        args.scenario, args.seed, fault_profile=args.faults, with_health=args.health
+    )
     out_dir: Path = args.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{spec.name}_seed{args.seed}"
@@ -107,6 +120,16 @@ def main(argv: list[str] | None = None) -> int:
             title=f"{spec.name} with faults: {args.faults}",
         )
         sensor_table = sensor_metrics(frames)
+    health_table = None
+    if args.health:
+        health_df = health_dataframe(result)
+        health_df.to_csv(out_dir / f"{stem}_health.csv", index=False)
+        save_health_timeline(
+            health_df,
+            out_dir / f"{stem}_health.png",
+            title=f"{spec.name} with faults: {args.faults}",
+        )
+        health_table = classification_metrics(health_df)
     metadata = {
         "fault_profile": args.faults,
         "summary": result.summary(),
@@ -123,6 +146,15 @@ def main(argv: list[str] | None = None) -> int:
     if sensor_table is not None:
         print(f"\nSensor quality (fault profile: {args.faults})")
         print(sensor_table.to_string(index=False))
+    if args.health and result.health_reports:
+        print("\nFinal sensor health")
+        for name, h in result.health_reports[-1].sensors.items():
+            print(f" {name:>7}: reliability {h.reliability:.2f} {h.status.value}")
+            for reason in h.reasons:
+                print(f"     - {reason}")
+    if health_table is not None and not health_table.empty:
+        print("\nHealth engine graded against injected faults")
+        print(health_table.to_string(index=False))
     print(f"Files saved in: {out_dir.resolve()}")
     return 0 if result.reason is TerminationReason.GOAL_REACHED else 1
 

@@ -1,4 +1,5 @@
 """Episode and batch runners: the evaluation harness used in every later phase.
+
 Any controller can be evaluated by passing a ``controller_factory``; the
 Phase 9 adaptive planner will be compared with the baseline using exactly
 the same scenarios, seeds and metrics.
@@ -13,9 +14,11 @@ import pandas as pd
 from config import SimulationParams, VehicleParams
 from experiments.scenario_loader import ScenarioSpec
 from experiments.scenarios import build_scenario
+from health.monitor import SensorHealthMonitor
 from sensors.profiles import build_fault_schedule
 from sensors.suite import SensorSuite
 from simulation.baseline_controller import ReactiveGoalController
+from simulation.occupancy_grid import OccupancyGrid
 from simulation.simulator import Controller, SimulationResult, Simulator
 from simulation.vehicle import Vehicle
 
@@ -32,8 +35,10 @@ def run_episode(
     controller_factory: ControllerFactory = reactive_baseline,
     sim_params: SimulationParams | None = None,
     fault_profile: str | None = None,
+    with_health: bool = False,
 ) -> tuple[ScenarioSpec, SimulationResult]:
     """Run one scenario once. Returns the spec (for plotting) and the result.
+
     ``fault_profile`` fits camera + LiDAR + radar and injects that profile's
     faults ("nominal" = healthy sensors). ``None`` runs without sensors.
     """
@@ -44,8 +49,18 @@ def run_episode(
     sensors = None
     if fault_profile is not None:
         sensors = SensorSuite.default(build_fault_schedule(fault_profile), seed)
+    health = None
+    if with_health:
+        static_map = OccupancyGrid.from_environment(spec.environment, resolution=0.5)
+        health = SensorHealthMonitor(static_map=static_map)
     simulator = Simulator(
-        spec.environment, vehicle, controller, params, spec.name, sensors=sensors
+        spec.environment,
+        vehicle,
+        controller,
+        params,
+        spec.name,
+        sensors=sensors,
+        health=health,
     )
     return spec, simulator.run()
 

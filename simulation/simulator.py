@@ -18,6 +18,7 @@ from simulation.vehicle import Vehicle, VehicleCommand, VehicleState
 from simulation.world_state import WorldState, build_world_state
 
 if TYPE_CHECKING:  # keeps 'simulation' independent of the 'sensors' package
+    from health.report import HealthReport
     from sensors.detection import SensorFrame
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class Controller(Protocol):
     """Anything that maps (state, goal, obstacles) to a command.
+
     The reactive baseline satisfies this; the Phase 9 adaptive planner will
     satisfy it too, so the simulator never has to change.
     """
@@ -41,6 +43,14 @@ class SensorSuiteLike(Protocol):
     """Anything that turns ground truth into delivered sensor frames."""
 
     def step(self, world: WorldState) -> list[SensorFrame]: ...
+
+
+class HealthMonitorLike(Protocol):
+    """Anything that judges sensor health from delivered frames and own pose."""
+
+    def update(
+        self, frames: list[SensorFrame], ego: VehicleState, now: float
+    ) -> HealthReport | None: ...
 
 
 class TerminationReason(str, Enum):
@@ -76,6 +86,7 @@ class SimulationResult:
     records: list[StepRecord] = field(default_factory=list)
     obstacle_history: list[tuple[ObstacleFrame, ...]] = field(default_factory=list)
     sensor_frames: list[SensorFrame] = field(default_factory=list)
+    health_reports: list[HealthReport] = field(default_factory=list)
 
     def to_dataframe(self) -> pd.DataFrame:
         return pd.DataFrame([asdict(r) for r in self.records])
@@ -119,13 +130,17 @@ class Simulator:
         params: SimulationParams | None = None,
         name: str = "custom",
         sensors: SensorSuiteLike | None = None,
+        health: HealthMonitorLike | None = None,
     ) -> None:
+        if health is not None and sensors is None:
+            raise ValueError("A health monitor needs sensors to monitor.")
         self.env = environment
         self.vehicle = vehicle
         self.controller = controller
         self.params = params or SimulationParams()
         self.name = name
         self.sensors = sensors
+        self.health = health
         self.clock = SimulationClock(self.params.dt)
 
     def world_state(self) -> WorldState:
@@ -135,9 +150,15 @@ class Simulator:
         )
 
     def _sense(self, result: SimulationResult) -> None:
-        """Let the sensors observe the current ground truth (if any are fitted)."""
-        if self.sensors is not None:
-            result.sensor_frames.extend(self.sensors.step(self.world_state()))
+        """Let the sensors observe the world, then let the monitor judge them."""
+        if self.sensors is None:
+            return
+        frames = self.sensors.step(self.world_state())
+        result.sensor_frames.extend(frames)
+        if self.health is not None:
+            report = self.health.update(frames, self.vehicle.state, self.clock.time)
+            if report is not None:
+                result.health_reports.append(report)
 
     def _snapshot(self, command: VehicleCommand) -> StepRecord:
         s, r = self.vehicle.state, self.vehicle.params.radius
