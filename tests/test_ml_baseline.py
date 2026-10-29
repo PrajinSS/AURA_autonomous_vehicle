@@ -2,7 +2,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-pytest.importorskip("sklearn")
+try:
+    import sklearn
+except (ImportError, Exception) as e:
+    pytest.skip(f"sklearn unavailable: {e}", allow_module_level=True)
 
 from health.config import INDICATORS  # noqa: E402
 from health.ml_baseline import FEATURES, RandomForestHealthModel, make_features  # noqa: E402

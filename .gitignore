@@ -1,8 +1,147 @@
+# ==============================================================================
+# Autonomous Vehicle Simulation & Safety Framework - .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Python & Bytecode
+# ------------------------------------------------------------------------------
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ------------------------------------------------------------------------------
+# Virtual Environments
+# ------------------------------------------------------------------------------
 .venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# Testing, Coverage & Benchmarking
+# ------------------------------------------------------------------------------
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+htmlcov/
+.benchmarks/
+
+# ------------------------------------------------------------------------------
+# IDEs & OS Files
+# ------------------------------------------------------------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ------------------------------------------------------------------------------
+# Secrets & Environment Configurations
+# ------------------------------------------------------------------------------
+*.log
+.env
+.env.*
+!.env.example
+
+# ------------------------------------------------------------------------------
+# Simulation & Experiment Outputs
+# (Preserves outputs/ directory structure via .gitkeep, ignores runtime artifacts)
+# ------------------------------------------------------------------------------
 outputs/*
 !outputs/.gitkeep
+
+# ------------------------------------------------------------------------------
+# Model Weights & Trained Checkpoints
+# (Preserves models/ directory structure via .gitkeep, ignores model binaries)
+# ------------------------------------------------------------------------------
+models/*
+!models/.gitkeep
+*.pt
+*.pth
+*.onnx
+*.engine
+*.ckpt
+*.weights
+*.pb
+*.tflite
+*.joblib
+*.pkl
+
+# ------------------------------------------------------------------------------
+# Raw & Processed Datasets
+# (Preserves folder structure via .gitkeep, strictly excludes all datasets/binaries)
+# ------------------------------------------------------------------------------
+# CARLA Simulator Engine builds & distributions
+**/CARLA_0.*
+**/CarlaUE4/
+**/CarlaSimulator/
+!simulation/carla_bridge/
+
+# Specific dataset directories
+data/raw/carla/*
+!data/raw/carla/.gitkeep
+
+data/raw/kitti/*
+!data/raw/kitti/.gitkeep
+
+data/raw/nuscenes/*
+!data/raw/nuscenes/.gitkeep
+
+# Processed and scenarios cache
+data/raw/*.*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/scenarios/*
+!data/scenarios/.gitkeep
+
+# General robotics / sensor data / archive formats anywhere in the repo
+*.bag
+*.pcap
+*.bin
+*.pcd
+*.las
+*.laz
+*.ply
+*.h5
+*.hdf5
+*.npy
+*.npz
+*.parquet
+*.feather
+*.arrow
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+*.iso

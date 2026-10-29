@@ -40,11 +40,11 @@ class Environment:
     # ---- queries ----------------------------------------------------------
     @property
     def static_obstacles(self) -> list[Obstacle]:
-        return [o for o in self.obstacles if o.is_static]
+        return [o for o in self.obstacles if getattr(o, "category", "") in ("wall", "static") or o.is_static]
 
     @property
     def dynamic_obstacles(self) -> list[Obstacle]:
-        return [o for o in self.obstacles if not o.is_static]
+        return [o for o in self.obstacles if getattr(o, "category", "") not in ("wall", "static") and not o.is_static]
 
     def obstacle_gaps(self, x: float, y: float, radius: float) -> list[float]:
         """Clearance (surface to surface) to every obstacle; <= 0 means contact."""
@@ -54,8 +54,28 @@ class Environment:
         gaps = self.obstacle_gaps(x, y, radius)
         return min(gaps) if gaps else math.inf
 
-    def in_collision(self, x: float, y: float, radius: float) -> bool:
-        return self.min_gap(x, y, radius) <= 0.0
+    def in_collision(self, x: float, y: float, radius: float, static_only: bool = False) -> bool:
+        targets = [o for o in self.obstacles if getattr(o, "category", "") in ("wall", "static")] if static_only else self.obstacles
+        for o in targets:
+            if o.gap(x, y, radius) <= 0.0:
+                return True
+        return False
+
+    def check_swept_collision(self, x1: float, y1: float, x2: float, y2: float, radius: float, static_only: bool = False) -> bool:
+        """Check if vehicle footprint collides with any obstacle along line segment (x1, y1) -> (x2, y2)."""
+        dist = math.hypot(x2 - x1, y2 - y1)
+        if dist < 1e-4:
+            return self.in_collision(x2, y2, radius, static_only=static_only)
+        step_size = max(0.1, radius * 0.4)
+        num_steps = max(2, int(math.ceil(dist / step_size)))
+        for i in range(num_steps + 1):
+            alpha = i / num_steps
+            px = x1 + alpha * (x2 - x1)
+            py = y1 + alpha * (y2 - y1)
+            if self.in_collision(px, py, radius, static_only=static_only):
+                return True
+        return False
+
 
     def goal_distance(self, x: float, y: float) -> float:
         return math.hypot(self.goal[0] - x, self.goal[1] - y)

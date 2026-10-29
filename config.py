@@ -21,10 +21,10 @@ class VehicleParams:
 
     wheelbase: float = 2.5
     radius: float = 1.2  # circular footprint used for collision checks
-    max_speed: float = 4.0
-    max_accel: float = 1.5
+    max_speed: float = 4.5
+    max_accel: float = 2.2
     max_brake: float = 4.0
-    max_steer: float = 0.6
+    max_steer: float = 0.75
 
     def __post_init__(self) -> None:
         _require_positive(
@@ -39,7 +39,24 @@ class VehicleParams:
 
 
 @dataclass(frozen=True)
+class CampusNavParams:
+    """Configurable navigation and motion parameters for AURA logistics campus."""
+
+    cruise_speed_mps: float = 4.5  # Cruising speed on straight arterial roads (~16.2 km/h)
+    turn_speed_mps: float = 2.2  # Safe cornering speed (~8.0 km/h)
+    docking_speed_mps: float = 1.2  # Slow, controlled dock approach / departure speed (~4.3 km/h)
+    max_accel_mps2: float = 2.0  # Standard propulsion acceleration
+    max_brake_mps2: float = 3.5  # Standard service brake deceleration
+    emergency_brake_mps2: float = 5.5  # Critical emergency braking deceleration
+    vehicle_radius_m: float = 1.25  # AMR collision footprint radius
+    safety_margin_m: float = 0.5  # Extra safety clearance to obstacles/walls
+    swept_collision_enabled: bool = True  # Swept collision check before each step
+    fixed_dt_s: float = 0.05  # 20 Hz fixed simulation timestep
+
+
+@dataclass(frozen=True)
 class ControllerParams:
+
     """Tuning of the Phase 1 reactive baseline controller."""
 
     k_steer: float = 1.8
